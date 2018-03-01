@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"net"
 	"fmt"
+	"time"
+	"sync"
 )
 
 // VERSION indicates which version of the binary is running.
@@ -18,12 +20,13 @@ var VERSION string
 var GITCOMMIT string
 
 var (
-	ipStart net.IPAddr
+	CIDRs []string
 	portStart, portEnd int
 	protocols []string
+	wg sync.WaitGroup
 )
 
-func defaultInit(c *cli.Context) error {
+func defaultInit(_ *cli.Context) error {
 	portStart = 1
 	portEnd = 65535
 	protocols = []string{"tcp","udp"}
@@ -59,13 +62,19 @@ func main() {
 	}
 
 
-
 	a.Action = func(c *cli.Context) error {
 		var err error
 
 		if len(c.Args()) == 0 {
-			fmt.Print("ll entire network will be scanned for all open IPs and ports.")
+			fmt.Print("all entire network will be scanned for all open IPs and ports.")
 			cli.ShowAppHelp(c)
+		}
+
+		if c.IsSet("ips") {
+			CIDRs, err = getCIDRs(c.String("protocol"))
+			if err != nil {
+				log.Fatalf("not able to parse 'ips' parameter value: %s.", err)
+			}
 		}
 
 		if c.IsSet("protocol") || c.IsSet("pc") {
@@ -83,15 +92,89 @@ func main() {
 			}
 		}
 
-		err = a.Run(os.Args)
-		if err != nil {
-			log.Fatal(err)
+		//Scan IP/CIDR address
+		for _, cidr := range CIDRs {
+			scanCDIR(cidr)
 		}
 
 		return nil
 	}
 
-	a.Run(os.Args)
+	err := a.Run(os.Args)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+
+
+func scanCDIR(cidr string) (err error) {
+
+	var ip net.IP
+	var ipNet *net.IPNet
+
+	ip, ipNet, err = net.ParseCIDR(cidr)
+
+	if err != nil {
+		//ip = net.ParseIP(cidr)
+		log.Printf("CIDR address not in correct format %s", err)
+		return  err
+	}
+
+	timeout := time.Second * 2
+
+
+
+	for ip := ip.Mask(ipNet.Mask); ipNet.Contains(ip); incIP(ip) {
+		wg.Add(1)
+		go func(ip string) {
+			defer wg.Done()
+
+			// ========
+			for _, protocol := range protocols {
+				for port := portStart; port <= portEnd; port++ {
+					addr := fmt.Sprintf("%s:%d", ip, port)
+					log.Printf("scanning addr: %s://%s\n", protocol, addr)
+
+					c, e := net.DialTimeout(protocol, addr, timeout)
+					if e == nil {
+						c.Close()
+						log.Printf("%s://%s is alive and reachable\n", protocol, addr)
+					}
+
+				}
+			}
+			// ========
+		}(ip.String())
+	}
+
+	wg.Wait()
+
+	return  err
+}
+
+func incIP(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
+}
+
+
+// Parse 'ips' parameter into the array of CDIR
+// 		https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
+func getCIDRs(ips string)  (CIDRs []string, err error) {
+
+	CIDRs = strings.Split(ips, ",")
+
+	for i, v := range CIDRs {
+		CIDRs[i] =  strings.TrimSpace(v)
+	}
+
+	return strings.Split(ips, ","), nil
 }
 
 // Parse 'port, p' parameter
