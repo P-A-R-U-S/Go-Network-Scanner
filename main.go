@@ -1,13 +1,12 @@
 package main
 
 import (
-	//"log"
+	"log"
 	"os"
-
+	"errors"
 	"github.com/urfave/cli"
 	"strings"
 	"strconv"
-	"Golang-Errors-Helper"
 	"net"
 	"fmt"
 )
@@ -61,37 +60,36 @@ func main() {
 
 
 
+	a.Action = func(c *cli.Context) error {
+		var err error
 
-	//a.Action = func(c *cli.Context) error {
-	//	var err error
-	//
-	//	if len(c.Args()) == 0 {
-	//		fmt.Print("ll entire network will be scanned for all open IPs and ports.")
-	//		cli.ShowAppHelp(c)
-	//	}
-	//
-	//	if c.IsSet("protocol") || c.IsSet("pc") {
-	//		protocols, err = getProtocols(c.String("protocol"))
-	//		if err != nil {
-	//			log.Fatalf("not able to parse 'protocol' parameter value: %s. Following port value would be used: %d,%d",
-	//				err, portStart, portEnd)
-	//		}
-	//	}
-	//
-	//	if c.IsSet("port") || c.IsSet("p") {
-	//		portStart, portEnd, err = getPorts(c.String("port"))
-	//		if err != nil {
-	//			log.Fatalf("not able to parse 'port' parameter value: %s", err)
-	//		}
-	//	}
-	//
-	//	err = a.Run(os.Args)
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//
-	//	return nil
-	//}
+		if len(c.Args()) == 0 {
+			fmt.Print("ll entire network will be scanned for all open IPs and ports.")
+			cli.ShowAppHelp(c)
+		}
+
+		if c.IsSet("protocol") || c.IsSet("pc") {
+			protocols, err = getProtocols(c.String("protocol"))
+			if err != nil {
+				log.Fatalf("not able to parse 'protocol' parameter value: %s. Following port value would be used: %d,%d",
+					err, portStart, portEnd)
+			}
+		}
+
+		if c.IsSet("port") || c.IsSet("p") {
+			portStart, portEnd, err = getPorts(c.String("port"))
+			if err != nil {
+				log.Fatalf("not able to parse 'port' parameter value: %s", err)
+			}
+		}
+
+		err = a.Run(os.Args)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		return nil
+	}
 
 	a.Run(os.Args)
 }
