@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 	"sync"
+	"math"
 )
 
 // VERSION indicates which version of the binary is running.
@@ -21,18 +22,12 @@ var GITCOMMIT string
 
 var (
 	CIDRs []string
-	portStart, portEnd int
-	protocols []string
-	wg sync.WaitGroup
-)
-
-func defaultInit(_ *cli.Context) error {
-	portStart = 1
+	portStart =1
 	portEnd = 65535
 	protocols = []string{"tcp","udp"}
-
-	return nil
-}
+	wg sync.WaitGroup
+	timeout = time.Second * 2
+)
 
 func main() {
 	a := cli.NewApp()
@@ -41,7 +36,6 @@ func main() {
 	a.Author = "Valentyn Ponomarenko"
 	a.Version = VERSION
 	a.Email = "bootloader@list.ru"
-	a.Before = defaultInit
 
 	a.Flags = []cli.Flag {
 		cli.StringFlag{
@@ -122,9 +116,6 @@ func scanCDIR(cidr string) (err error) {
 		return  err
 	}
 
-	timeout := time.Second * 2
-
-
 
 	for ip := ip.Mask(ipNet.Mask); ipNet.Contains(ip); incIP(ip) {
 		wg.Add(1)
@@ -161,6 +152,112 @@ func incIP(ip net.IP) {
 			break
 		}
 	}
+}
+
+// 
+func IPRangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
+
+	cidr2mask := []uint32{
+		0x00000000, 0x80000000, 0xC0000000,
+		0xE0000000, 0xF0000000, 0xF8000000,
+		0xFC000000, 0xFE000000, 0xFF000000,
+		0xFF800000, 0xFFC00000, 0xFFE00000,
+		0xFFF00000, 0xFFF80000, 0xFFFC0000,
+		0xFFFE0000, 0xFFFF0000, 0xFFFF8000,
+		0xFFFFC000, 0xFFFFE000, 0xFFFFF000,
+		0xFFFFF800, 0xFFFFFC00, 0xFFFFFE00,
+		0xFFFFFF00, 0xFFFFFF80, 0xFFFFFFC0,
+		0xFFFFFFE0, 0xFFFFFFF0, 0xFFFFFFF8,
+		0xFFFFFFFC, 0xFFFFFFFE, 0xFFFFFFFF,
+	}
+
+
+	//Convert IP to uint32
+	iPToUint32 := func(ip string ) uint32 {
+
+		ipOctets := [4]uint64{}
+
+		for i, v := range strings.SplitN(ip,".", 4) {
+			ipOctets[i], _  = strconv.ParseUint(v, 10, 32)
+		}
+
+		result := (ipOctets[0] << 24) + (ipOctets[1] << 16) + (ipOctets[2] << 8) + ipOctets[3]
+
+		return uint32(result)
+	}
+
+	//Convert uint32 to IP
+	uInt32ToIP := func(iPuInt32 uint32) (iP string) {
+		iP =  fmt.Sprintf ("%d.%d.%d.%d",
+			iPuInt32 >> 24,
+			(iPuInt32 & 0x00FFFFFF)>> 16,
+			(iPuInt32 & 0x0000FFFF) >> 8,
+			iPuInt32 & 0x000000FF)
+		return iP
+	}
+
+	ipStartUint32 := iPToUint32(ipStart)
+	ipEndUint32 := iPToUint32(ipEnd)
+
+	if ipStartUint32 > ipEndUint32 {
+		log.Fatalf("starting IP:%s must be less than end IP:%s", ipStart, ipEnd)
+	}
+
+	for ipEndUint32 >= ipStartUint32 {
+		maxSize := 32
+		for maxSize > 0 {
+
+			maskedBase := ipStartUint32 & cidr2mask[maxSize - 1]
+
+			if maskedBase > ipStartUint32 {
+				break
+			}
+			maxSize--
+
+		}
+
+		x := math.Log(float64(ipEndUint32 - ipStartUint32 + 1)) / math.Log(2)
+		maxDiff := 32 - int(math.Floor(x))
+		if maxSize < maxDiff {
+			maxSize = maxDiff
+		}
+
+		CIDRs = append(CIDRs,  uInt32ToIP(ipStartUint32) + "/" + string(maxSize))
+
+		ipStartUint32 += uint32(math.Exp2(float64(32 - maxSize)))
+	}
+
+	/*
+
+	# Check if Ending IP Address is greater than Starting IP Address
+	raise ArgumentError, 'Starting IP must be less than the end IP' unless startaddr < endaddr
+
+	cidrlist = Array.new
+
+	while endaddr >= startaddr
+	  maxsize = 32
+	  while maxsize > 0
+		mask = cidr2mask[maxsize - 1]
+		maskedbase = startaddr & mask
+
+		break if maskedbase != startaddr
+
+		maxsize -= 1
+	  end
+
+	  x = Math.log(endaddr - startaddr + 1) / Math.log(2)
+	  maxdiff = 32 - x.floor
+	  maxsize = maxdiff if maxsize < maxdiff
+
+	  cidrlist.push(long_to_ipstring(startaddr) + "/" + maxsize.to_s)
+	  startaddr += 2**(32 - maxsize)
+	end
+
+	return cidrlist
+  end
+	*/
+
+	return CIDRs, err
 }
 
 
