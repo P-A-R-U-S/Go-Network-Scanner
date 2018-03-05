@@ -88,7 +88,7 @@ func main() {
 
 		//Scan IP/CIDR address
 		for _, cidr := range CIDRs {
-			scanCDIR(cidr)
+			scan(cidr)
 		}
 
 		return nil
@@ -102,8 +102,7 @@ func main() {
 }
 
 
-
-func scanCDIR(cidr string) (err error) {
+func scan(cidr string) (err error) {
 
 	var ip net.IP
 	var ipNet *net.IPNet
@@ -154,8 +153,32 @@ func incIP(ip net.IP) {
 	}
 }
 
-// 
-func IPRangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
+//
+func iPv4ToUint32(iPv4 string ) uint32 {
+
+	ipOctets := [4]uint64{}
+
+	for i, v := range strings.SplitN(iPv4,".", 4) {
+		ipOctets[i], _  = strconv.ParseUint(v, 10, 32)
+	}
+
+	result := (ipOctets[0] << 24) | (ipOctets[1] << 16) | (ipOctets[2] << 8) | ipOctets[3]
+
+	return uint32(result)
+}
+
+//Convert uint32 to IP
+func uInt32ToIPv4(iPuInt32 uint32) (iP string) {
+	iP =  fmt.Sprintf ("%d.%d.%d.%d",
+		iPuInt32 >> 24,
+		(iPuInt32 & 0x00FFFFFF)>> 16,
+		(iPuInt32 & 0x0000FFFF) >> 8,
+		iPuInt32 & 0x000000FF)
+	return iP
+}
+
+// Convert IPv4 range into CIDR
+func iPv4RangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
 
 	cidr2mask := []uint32{
 		0x00000000, 0x80000000, 0xC0000000,
@@ -172,32 +195,8 @@ func IPRangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
 	}
 
 
-	//Convert IP to uint32
-	iPToUint32 := func(ip string ) uint32 {
-
-		ipOctets := [4]uint64{}
-
-		for i, v := range strings.SplitN(ip,".", 4) {
-			ipOctets[i], _  = strconv.ParseUint(v, 10, 32)
-		}
-
-		result := (ipOctets[0] << 24) + (ipOctets[1] << 16) + (ipOctets[2] << 8) + ipOctets[3]
-
-		return uint32(result)
-	}
-
-	//Convert uint32 to IP
-	uInt32ToIP := func(iPuInt32 uint32) (iP string) {
-		iP =  fmt.Sprintf ("%d.%d.%d.%d",
-			iPuInt32 >> 24,
-			(iPuInt32 & 0x00FFFFFF)>> 16,
-			(iPuInt32 & 0x0000FFFF) >> 8,
-			iPuInt32 & 0x000000FF)
-		return iP
-	}
-
-	ipStartUint32 := iPToUint32(ipStart)
-	ipEndUint32 := iPToUint32(ipEnd)
+	ipStartUint32 := iPv4ToUint32(ipStart)
+	ipEndUint32 := iPv4ToUint32(ipEnd)
 
 	if ipStartUint32 > ipEndUint32 {
 		log.Fatalf("starting IP:%s must be less than end IP:%s", ipStart, ipEnd)
@@ -209,7 +208,7 @@ func IPRangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
 
 			maskedBase := ipStartUint32 & cidr2mask[maxSize - 1]
 
-			if maskedBase > ipStartUint32 {
+			if maskedBase != ipStartUint32 {
 				break
 			}
 			maxSize--
@@ -222,47 +221,49 @@ func IPRangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
 			maxSize = maxDiff
 		}
 
-		CIDRs = append(CIDRs,  uInt32ToIP(ipStartUint32) + "/" + string(maxSize))
+		CIDRs = append(CIDRs,  uInt32ToIPv4(ipStartUint32) + "/" +  strconv.Itoa(maxSize))
 
 		ipStartUint32 += uint32(math.Exp2(float64(32 - maxSize)))
 	}
 
-	/*
-
-	# Check if Ending IP Address is greater than Starting IP Address
-	raise ArgumentError, 'Starting IP must be less than the end IP' unless startaddr < endaddr
-
-	cidrlist = Array.new
-
-	while endaddr >= startaddr
-	  maxsize = 32
-	  while maxsize > 0
-		mask = cidr2mask[maxsize - 1]
-		maskedbase = startaddr & mask
-
-		break if maskedbase != startaddr
-
-		maxsize -= 1
-	  end
-
-	  x = Math.log(endaddr - startaddr + 1) / Math.log(2)
-	  maxdiff = 32 - x.floor
-	  maxsize = maxdiff if maxsize < maxdiff
-
-	  cidrlist.push(long_to_ipstring(startaddr) + "/" + maxsize.to_s)
-	  startaddr += 2**(32 - maxsize)
-	end
-
-	return cidrlist
-  end
-	*/
-
 	return CIDRs, err
 }
 
+// Convert CIDR to IPv4 range
+func CIDRToIPv4Range(CIDRs string) (ipStart string, ipEnd string, err error) {
 
-// Parse 'ips' parameter into the array of CDIR
-// 		https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
+	var ip uint32        // ip address
+	var mask uint32      // subnet mask
+	var broadcast uint32 // Broadcast address
+	var network uint32   // Network address
+
+	cidrParts  := strings.Split(CIDRs, "/")
+
+	ip = iPv4ToUint32(cidrParts[0])
+	bits, _ := strconv.ParseUint(cidrParts[1], 10, 32)
+	mask = ^(0xFFFFFFFF >> bits)
+
+	network = ip | mask
+	broadcast = network + ^mask
+
+	var usableIps uint32 = 0
+	if bits < 30 {
+		usableIps = broadcast - network - 1
+	}
+
+	if usableIps <= 0  {
+		ipStart = uInt32ToIPv4(0)
+		ipEnd = uInt32ToIPv4(0)
+	} else {
+		ipStart = uInt32ToIPv4(network + 1)
+		ipEnd = uInt32ToIPv4(broadcast - 1)
+
+	}
+
+	return ipStart, ipEnd, err
+}
+
+// Parse 'ips' parameter into the array of CDIR (https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
 func getCIDRs(ips string)  (CIDRs []string, err error) {
 
 	CIDRs = strings.Split(ips, ",")
@@ -347,4 +348,6 @@ func getProtocols(protocol string) ([]string, error) {
 	}
 	return pcs, nil
 }
+
+
 
