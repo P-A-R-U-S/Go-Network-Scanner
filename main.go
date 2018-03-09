@@ -107,6 +107,15 @@ func scan(cidr string) (err error) {
 	var ip net.IP
 	var ipNet *net.IPNet
 
+	var incIP = func (ip net.IP) {
+		for j := len(ip) - 1; j >= 0; j-- {
+			ip[j]++
+			if ip[j] > 0 {
+				break
+			}
+		}
+	}
+
 	ip, ipNet, err = net.ParseCIDR(cidr)
 
 	if err != nil {
@@ -144,16 +153,8 @@ func scan(cidr string) (err error) {
 	return  err
 }
 
-func incIP(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
-}
 
-//
+//Convert IPv4 to uint32
 func iPv4ToUint32(iPv4 string ) uint32 {
 
 	ipOctets := [4]uint64{}
@@ -178,7 +179,7 @@ func uInt32ToIPv4(iPuInt32 uint32) (iP string) {
 }
 
 // Convert IPv4 range into CIDR
-func iPv4RangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
+func iPv4RangeToCIDRRange(ipStart string, ipEnd string) (CIDRs []string, err error) {
 
 	cidr2mask := []uint32{
 		0x00000000, 0x80000000, 0xC0000000,
@@ -194,12 +195,11 @@ func iPv4RangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
 		0xFFFFFFFC, 0xFFFFFFFE, 0xFFFFFFFF,
 	}
 
-
 	ipStartUint32 := iPv4ToUint32(ipStart)
 	ipEndUint32 := iPv4ToUint32(ipEnd)
 
 	if ipStartUint32 > ipEndUint32 {
-		log.Fatalf("starting IP:%s must be less than end IP:%s", ipStart, ipEnd)
+		log.Fatalf("start IP:%s must be less than end IP:%s", ipStart, ipEnd)
 	}
 
 	for ipEndUint32 >= ipStartUint32 {
@@ -230,35 +230,34 @@ func iPv4RangeToCIDR(ipStart string, ipEnd string) (CIDRs []string, err error) {
 }
 
 // Convert CIDR to IPv4 range
-func CIDRToIPv4Range(CIDRs string) (ipStart string, ipEnd string, err error) {
+func CIDRRangeToIPv4Range(CIDRs []string) (ipStart string, ipEnd string, err error) {
 
 	var ip uint32        // ip address
-	var mask uint32      // subnet mask
-	var broadcast uint32 // Broadcast address
-	var network uint32   // Network address
 
-	cidrParts  := strings.Split(CIDRs, "/")
+	var ipS uint32		 // Start IP address range
+	var ipE uint32 		 // End IP address range
 
-	ip = iPv4ToUint32(cidrParts[0])
-	bits, _ := strconv.ParseUint(cidrParts[1], 10, 32)
-	mask = ^(0xFFFFFFFF >> bits)
+	for _, CIDR := range CIDRs {
 
-	network = ip | mask
-	broadcast = network + ^mask
+		cidrParts := strings.Split(CIDR, "/")
 
-	var usableIps uint32 = 0
-	if bits < 30 {
-		usableIps = broadcast - network - 1
-	}
+		ip = iPv4ToUint32(cidrParts[0])
+		bits, _ := strconv.ParseUint(cidrParts[1], 10, 32)
 
-	if usableIps <= 0  {
-		ipStart = uInt32ToIPv4(0)
-		ipEnd = uInt32ToIPv4(0)
-	} else {
-		ipStart = uInt32ToIPv4(network + 1)
-		ipEnd = uInt32ToIPv4(broadcast - 1)
+		if ipS == 0 || ipS > ip {
+			ipS = ip
+		}
+
+		ip = ip | (0xFFFFFFFF >> bits)
+
+		if ipE < ip {
+			ipE = ip
+		}
 
 	}
+
+	ipStart = uInt32ToIPv4(ipS)
+	ipEnd = uInt32ToIPv4(ipE)
 
 	return ipStart, ipEnd, err
 }
