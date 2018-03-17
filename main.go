@@ -30,6 +30,9 @@ var (
 )
 
 func main() {
+
+
+
 	a := cli.NewApp()
 	a.Name = "NetScanner"
 	a.Usage = "Network IP addresses and ports scanner"
@@ -53,6 +56,11 @@ func main() {
 			Value: "1-65535 or just start port 1000",
 			Usage: "port range to scan",
 		},
+		cli.StringFlag{
+			Name:  "timeout, t",
+			Value: "in milliseconds, by default: 2000 msec(2 sec)",
+			Usage: "port range to scan",
+		},
 	}
 
 
@@ -65,9 +73,16 @@ func main() {
 		}
 
 		if c.IsSet("ips") {
-			CIDRs, err = getCIDRs(c.String("protocol"))
+			CIDRs, err = getCIDRs(c.String("ips"))
 			if err != nil {
 				log.Fatalf("not able to parse 'ips' parameter value: %s.", err)
+			}
+		}
+
+		if c.IsSet("t") || c.IsSet("timeout"){
+			timeout, err = time.ParseDuration(c.String("t"))
+			if err != nil {
+				log.Fatalf("not able to parse 'timeout' parameter value: %s.", err)
 			}
 		}
 
@@ -100,7 +115,6 @@ func main() {
 		log.Fatal(err)
 	}
 }
-
 
 func scan(cidr string) (err error) {
 
@@ -153,7 +167,6 @@ func scan(cidr string) (err error) {
 	return  err
 }
 
-
 //Convert IPv4 to uint32
 func iPv4ToUint32(iPv4 string ) uint32 {
 
@@ -179,7 +192,7 @@ func uInt32ToIPv4(iPuInt32 uint32) (iP string) {
 }
 
 // Convert IPv4 range into CIDR
-func iPv4RangeToCIDRRange(ipStart string, ipEnd string) (CIDRs []string, err error) {
+func iPv4RangeToCIDRRange(ipStart string, ipEnd string) (cidrs []string, err error) {
 
 	cidr2mask := []uint32{
 		0x00000000, 0x80000000, 0xC0000000,
@@ -221,23 +234,23 @@ func iPv4RangeToCIDRRange(ipStart string, ipEnd string) (CIDRs []string, err err
 			maxSize = maxDiff
 		}
 
-		CIDRs = append(CIDRs,  uInt32ToIPv4(ipStartUint32) + "/" +  strconv.Itoa(maxSize))
+		cidrs = append(cidrs,  uInt32ToIPv4(ipStartUint32) + "/" +  strconv.Itoa(maxSize))
 
 		ipStartUint32 += uint32(math.Exp2(float64(32 - maxSize)))
 	}
 
-	return CIDRs, err
+	return cidrs, err
 }
 
 // Convert CIDR to IPv4 range
-func CIDRRangeToIPv4Range(CIDRs []string) (ipStart string, ipEnd string, err error) {
+func CIDRRangeToIPv4Range(cidrs []string) (ipStart string, ipEnd string, err error) {
 
 	var ip uint32        // ip address
 
 	var ipS uint32		 // Start IP address range
 	var ipE uint32 		 // End IP address range
 
-	for _, CIDR := range CIDRs {
+	for _, CIDR := range cidrs {
 
 		cidrParts := strings.Split(CIDR, "/")
 
@@ -263,12 +276,12 @@ func CIDRRangeToIPv4Range(CIDRs []string) (ipStart string, ipEnd string, err err
 }
 
 // Parse 'ips' parameter into the array of CDIR (https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-func getCIDRs(ips string)  (CIDRs []string, err error) {
+func getCIDRs(ips string)  (cidrs []string, err error) {
 
-	CIDRs = strings.Split(ips, ",")
+	cidrs = strings.Split(ips, ",")
 
-	for i, v := range CIDRs {
-		CIDRs[i] =  strings.TrimSpace(v)
+	for i, v := range cidrs {
+		cidrs[i] =  strings.TrimSpace(v)
 	}
 
 	return strings.Split(ips, ","), nil
