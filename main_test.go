@@ -76,11 +76,11 @@ func Test_Should_not_throw_error_when_port_parameter_is_empty_string(t *testing.
 	}
 
 	if portStart != 1 {
-		t.Errorf("Port are not parsed correctly: expected: %s, but actual: %s", 1, portStart )
+		t.Errorf("port are not parsed correctly: expected: %d, but actual: %d", 1, portStart )
 	}
 
 	if portEnd != 65535 {
-		t.Errorf("Port are not parsed correctly: expected: %s, but actual: %s", 65535, portStart )
+		t.Errorf("port are not parsed correctly: expected: %d, but actual: %d", 65535, portStart )
 	}
 }
 
@@ -92,11 +92,11 @@ func Test_Should_parse_successfully_if_only_one_port_parameter_passed_as_argumen
 	}
 
 	if portStart != 3345 {
-		t.Errorf("Port are not parsed correctly: expected: %s, but actual: %s", 3345, portStart )
+		t.Errorf("Port are not parsed correctly: expected: %d, but actual: %d", 3345, portStart )
 	}
 
 	if portEnd != 65535 {
-		t.Errorf("Port are not parsed correctly: expected: %s, but actual: %s", 65535, portStart )
+		t.Errorf("Port are not parsed correctly: expected: %d, but actual: %d", 65535, portStart )
 	}
 }
 
