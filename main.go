@@ -68,7 +68,6 @@ func main() {
 		var err error
 
 		if len(c.Args()) == 0 {
-			fmt.Print("all entire network will be scanned for all open IPs and ports.")
 			cli.ShowAppHelp(c)
 		}
 

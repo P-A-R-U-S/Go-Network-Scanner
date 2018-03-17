@@ -6,3 +6,19 @@ The main requirement for the tool to accept individual IP, range of IPs in regul
 
 There was no requirement to build like a package, but you can easily converted it. Enjoy coding.
 
+## Example 
+
+
+## Contributing
+
+We welcome pull requests, bug fixes and issue reports. 
+
+Before proposing a change, please discuss your change by raising an issue.
+
+## Authors
+
+* **Valentyn Ponomarenko** - *Initial work* - [P-A-R-U-S](https://github.com/P-A-R-U-S)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
