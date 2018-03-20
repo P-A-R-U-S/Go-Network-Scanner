@@ -8,7 +8,16 @@ There was no requirement to build like a package, but you can easily converted i
 
 ## Example 
 
+```
+$ ./netscanner --ip 10.0.1.1-10.0.1.11,10.0.1.12/32 --p 80 --pc tcp,udp --t 3000
 
+Output:
+    ......
+    2018/03/19 23:40:20 scanning addr: tcp://10.0.1.1:138
+    2018/03/19 23:40:20 scanning addr: tcp://10.0.1.1:139
+    2018/03/19 23:40:20 tcp://10.0.1.1:139 is alive and reachable
+    ......
+```
 ## Contributing
 
 We welcome pull requests, bug fixes and issue reports. 
