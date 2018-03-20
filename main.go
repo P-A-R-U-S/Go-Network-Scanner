@@ -12,6 +12,7 @@ import (
 	"time"
 	"sync"
 	"math"
+	"regexp"
 )
 
 // VERSION indicates which version of the binary is running.
@@ -25,13 +26,11 @@ var (
 	portStart =1
 	portEnd = 65535
 	protocols = []string{"tcp","udp"}
+	timeout = time.Microsecond * 2000
 	wg sync.WaitGroup
-	timeout = time.Second * 2
 )
 
 func main() {
-
-
 
 	a := cli.NewApp()
 	a.Name = "NetScanner"
@@ -42,24 +41,23 @@ func main() {
 
 	a.Flags = []cli.Flag {
 		cli.StringFlag{
-			Name:  "ips",
-			Value: "127.0.0.1/12",
-			Usage: "protocol for IP(s) scan",
+			Name:  "ip",
+			Usage: "protocol for IP(s) scan, e.g --ip 127.0.0.1/12, 10.0.1.1-10.0.1.12",
 		},
 		cli.StringFlag{
 			Name:  "protocol, pc",
 			Value: "tcp,udp",
-			Usage: "protocol for IP(s) scan",
+			Usage: "protocol for IP(s) scan, e.g ",
 		},
 		cli.StringFlag{
 			Name:  "port, p",
-			Value: "1-65535 or just start port 1000",
+			Value: "1-65535 or just start port 1000, e.g --port 1-200",
 			Usage: "port range to scan",
 		},
 		cli.StringFlag{
 			Name:  "timeout, t",
-			Value: "in milliseconds, by default: 2000 msec(2 sec)",
-			Usage: "port range to scan",
+			Value: "in milliseconds, by default: 2000 msec(2 sec), e.g. --t 3000 or --t 2s or --t 3000ms",
+			Usage: "timeOut",
 		},
 	}
 
@@ -71,15 +69,15 @@ func main() {
 			cli.ShowAppHelp(c)
 		}
 
-		if c.IsSet("ips") {
-			CIDRs, err = getCIDRs(c.String("ips"))
+		if c.IsSet("ip") {
+			CIDRs, err = getCIDRs(c.String("ip"))
 			if err != nil {
 				log.Fatalf("not able to parse 'ips' parameter value: %s.", err)
 			}
 		}
 
 		if c.IsSet("t") || c.IsSet("timeout"){
-			timeout, err = time.ParseDuration(c.String("t"))
+			timeout, err = getTimeout(c.String("t"))
 			if err != nil {
 				log.Fatalf("not able to parse 'timeout' parameter value: %s.", err)
 			}
@@ -100,7 +98,7 @@ func main() {
 			}
 		}
 
-		//Scan IP/CIDR address
+		//Scan CIDR address
 		for _, cidr := range CIDRs {
 			scan(cidr)
 		}
@@ -132,7 +130,6 @@ func scan(cidr string) (err error) {
 	ip, ipNet, err = net.ParseCIDR(cidr)
 
 	if err != nil {
-		//ip = net.ParseIP(cidr)
 		log.Printf("CIDR address not in correct format %s", err)
 		return  err
 	}
@@ -275,19 +272,42 @@ func CIDRRangeToIPv4Range(cidrs []string) (ipStart string, ipEnd string, err err
 }
 
 // Parse 'ips' parameter into the array of CDIR (https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-func getCIDRs(ips string)  (cidrs []string, err error) {
+func getCIDRs(ipsParameter string)  (cidrs []string, err error) {
 
-	cidrs = strings.Split(ips, ",")
+	paramParts := strings.Split(ipsParameter, ",")
 
-	for i, v := range cidrs {
-		cidrs[i] =  strings.TrimSpace(v)
+	var cidrRegEx = regexp.MustCompile(`^([0-9]{1,3}\.){3}[0-9]{1,3}?$`)
+
+	for _, v := range paramParts {
+		paramParts :=  strings.TrimSpace(v)
+
+		if cidrRegEx.MatchString(paramParts) {
+			cidrs = append(cidrs, paramParts)
+			continue
+		}
+
+		ipParamParts := strings.Split(paramParts, "-")
+
+		ipStart := strings.TrimSpace(ipParamParts[0])
+		ipEnd := ipStart
+		if len(ipParamParts) >= 1 {
+			ipEnd = strings.TrimSpace(ipParamParts[1])
+		}
+
+		paramPartsCidrs, err := iPv4RangeToCIDRRange(ipStart, ipEnd)
+
+		if err != nil {
+			fmt.Errorf("enable to parse IP range: %s - %s", ipStart, ipEnd)
+		}
+
+		cidrs = append(cidrs, paramPartsCidrs...)
 	}
 
-	return strings.Split(ips, ","), nil
+	return cidrs, err
 }
 
 // Parse 'port, p' parameter
-func getPorts(ports string) (begin int, end int, err error) {
+func getPorts(portsParameter string) (begin int, end int, err error) {
 
 	const minPort = 1
 	const maxPort = 65535
@@ -295,11 +315,11 @@ func getPorts(ports string) (begin int, end int, err error) {
 	begin = minPort
 	end = maxPort
 
-	if len(ports) == 0 {
+	if len(portsParameter) == 0 {
 		return minPort, maxPort, nil
 	}
 
-	parsedPorts := strings.Split(ports, ",")
+	parsedPorts := strings.Split(portsParameter, "-")
 
 	begin, err = strconv.Atoi(parsedPorts[0])
 
@@ -329,16 +349,16 @@ func getPorts(ports string) (begin int, end int, err error) {
 }
 
 // Parse 'protocol, pc' parameter
-func getProtocols(protocol string) ([]string, error) {
+func getProtocols(protocolParameter string) ([]string, error) {
 
-	if len(protocol) == 0 {
+	if len(protocolParameter) == 0 {
 		return []string{"tcp", "udp"}, nil
 	}
 
 	var pcs []string
 	var pcsIgnored []string
 
-	for _, v := range strings.Split(protocol, ",") {
+	for _, v := range strings.Split(protocolParameter, ",") {
 
 		v := strings.Trim(strings.ToLower(v),"")
 
@@ -360,5 +380,21 @@ func getProtocols(protocol string) ([]string, error) {
 	return pcs, nil
 }
 
+// Parse 'protocol, pc' parameter
+func getTimeout(timeOutParameter string) (timeOut time.Duration, err error) {
+
+	switch {
+	case strings.HasSuffix(timeOutParameter, "ms"):
+		timeOut, err = time.ParseDuration( timeOutParameter)
+	case strings.HasSuffix(timeOutParameter, "s"):
+		timeOut, err = time.ParseDuration( timeOutParameter)
+	case strings.HasSuffix(timeOutParameter, "m"):
+		timeOut, err = time.ParseDuration( timeOutParameter)
+	default:
+		timeOut, err = time.ParseDuration( timeOutParameter + "ms")
+	}
+
+	return timeOut, err
+}
 
 
