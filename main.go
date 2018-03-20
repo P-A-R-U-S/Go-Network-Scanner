@@ -42,22 +42,22 @@ func main() {
 	a.Flags = []cli.Flag {
 		cli.StringFlag{
 			Name:  "ip",
-			Usage: "protocol for IP(s) scan, e.g --ip 127.0.0.1/12, 10.0.1.1-10.0.1.12",
+			Usage: "IP range, e.g --ip 127.0.0.1/12, 10.0.1.1-10.0.1.12",
 		},
 		cli.StringFlag{
 			Name:  "protocol, pc",
 			Value: "tcp,udp",
-			Usage: "protocol for IP(s) scan, e.g ",
+			Usage: "protocol for IP(s) scan, e.g --pc tcp",
 		},
 		cli.StringFlag{
 			Name:  "port, p",
-			Value: "1-65535 or just start port 1000, e.g --port 1-200",
-			Usage: "port range to scan",
+			Value: "1-65535",
+			Usage: "port range to scan, e.g --port 1-200",
 		},
 		cli.StringFlag{
 			Name:  "timeout, t",
-			Value: "in milliseconds, by default: 2000 msec(2 sec), e.g. --t 3000 or --t 2s or --t 3000ms",
-			Usage: "timeOut",
+			Value: "2000",
+			Usage: "timeOut n milliseconds, e.g. --t 3000 or --t 2s or --t 3000ms",
 		},
 	}
 
@@ -290,7 +290,7 @@ func getCIDRs(ipsParameter string)  (cidrs []string, err error) {
 
 		ipStart := strings.TrimSpace(ipParamParts[0])
 		ipEnd := ipStart
-		if len(ipParamParts) >= 1 {
+		if len(ipParamParts) > 1 {
 			ipEnd = strings.TrimSpace(ipParamParts[1])
 		}
 
