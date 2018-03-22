@@ -1,4 +1,4 @@
-# Golang Network Port Scanner [![Travis-CI](https://api.travis-ci.org/P-A-R-U-S/Golang-Network-Scanner.svg?branch=master)](https://travis-ci.org/P-A-R-U-S/Golang-Network-Scanner) 
+# Golang Network Port Scanner [![Travis-CI](https://api.travis-ci.org/P-A-R-U-S/Golang-Network-Scanner.svg?branch=master)](https://travis-ci.org/P-A-R-U-S/Golang-Network-Scanner) [![License](https://img.shields.io/dub/l/vibe-d.svg)](https://opensource.org/licenses/MIT)
 
 Simple command line tool to scan network ports. Command line tool was done as part of technical interview and as example for article on [HabraHabr.ru](https://habrahabr.ru/post/351574/).
 
