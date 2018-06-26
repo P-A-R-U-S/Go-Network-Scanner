@@ -1,18 +1,18 @@
 package main
 
 import (
-	"log"
-	"os"
 	"errors"
-	"github.com/urfave/cli"
-	"strings"
-	"strconv"
-	"net"
 	"fmt"
-	"time"
-	"sync"
+	"github.com/urfave/cli"
+	"log"
 	"math"
+	"net"
+	"os"
 	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 // VERSION indicates which version of the binary is running.
@@ -22,12 +22,12 @@ var VERSION string
 var GITCOMMIT string
 
 var (
-	CIDRs []string
-	portStart =1
-	portEnd = 65535
-	protocols = []string{"tcp","udp"}
-	timeout = time.Microsecond * 2000
-	wg sync.WaitGroup
+	CIDRs     []string
+	portStart = 1
+	portEnd   = 65535
+	protocols = []string{"tcp", "udp"}
+	timeout   = time.Microsecond * 2000
+	wg        sync.WaitGroup
 )
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 	a.Version = VERSION
 	a.Email = "bootloader@list.ru"
 
-	a.Flags = []cli.Flag {
+	a.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "ip",
 			Usage: "IP range, e.g --ip 127.0.0.1/12, 10.0.1.1-10.0.1.12",
@@ -61,7 +61,6 @@ func main() {
 		},
 	}
 
-
 	a.Action = func(c *cli.Context) error {
 		var err error
 
@@ -76,7 +75,7 @@ func main() {
 			}
 		}
 
-		if c.IsSet("t") || c.IsSet("timeout"){
+		if c.IsSet("t") || c.IsSet("timeout") {
 			timeout, err = getTimeout(c.String("t"))
 			if err != nil {
 				log.Fatalf("not able to parse 'timeout' parameter value: %s.", err)
@@ -118,7 +117,7 @@ func scan(cidr string) (err error) {
 	var ip net.IP
 	var ipNet *net.IPNet
 
-	var incIP = func (ip net.IP) {
+	var incIP = func(ip net.IP) {
 		for j := len(ip) - 1; j >= 0; j-- {
 			ip[j]++
 			if ip[j] > 0 {
@@ -131,9 +130,8 @@ func scan(cidr string) (err error) {
 
 	if err != nil {
 		log.Printf("CIDR address not in correct format %s", err)
-		return  err
+		return err
 	}
-
 
 	for ip := ip.Mask(ipNet.Mask); ipNet.Contains(ip); incIP(ip) {
 		wg.Add(1)
@@ -160,16 +158,16 @@ func scan(cidr string) (err error) {
 
 	wg.Wait()
 
-	return  err
+	return err
 }
 
 //Convert IPv4 to uint32
-func iPv4ToUint32(iPv4 string ) uint32 {
+func iPv4ToUint32(iPv4 string) uint32 {
 
 	ipOctets := [4]uint64{}
 
-	for i, v := range strings.SplitN(iPv4,".", 4) {
-		ipOctets[i], _  = strconv.ParseUint(v, 10, 32)
+	for i, v := range strings.SplitN(iPv4, ".", 4) {
+		ipOctets[i], _ = strconv.ParseUint(v, 10, 32)
 	}
 
 	result := (ipOctets[0] << 24) | (ipOctets[1] << 16) | (ipOctets[2] << 8) | ipOctets[3]
@@ -179,11 +177,11 @@ func iPv4ToUint32(iPv4 string ) uint32 {
 
 //Convert uint32 to IP
 func uInt32ToIPv4(iPuInt32 uint32) (iP string) {
-	iP =  fmt.Sprintf ("%d.%d.%d.%d",
-		iPuInt32 >> 24,
-		(iPuInt32 & 0x00FFFFFF)>> 16,
-		(iPuInt32 & 0x0000FFFF) >> 8,
-		iPuInt32 & 0x000000FF)
+	iP = fmt.Sprintf("%d.%d.%d.%d",
+		iPuInt32>>24,
+		(iPuInt32&0x00FFFFFF)>>16,
+		(iPuInt32&0x0000FFFF)>>8,
+		iPuInt32&0x000000FF)
 	return iP
 }
 
@@ -215,7 +213,7 @@ func iPv4RangeToCIDRRange(ipStart string, ipEnd string) (cidrs []string, err err
 		maxSize := 32
 		for maxSize > 0 {
 
-			maskedBase := ipStartUint32 & cidr2mask[maxSize - 1]
+			maskedBase := ipStartUint32 & cidr2mask[maxSize-1]
 
 			if maskedBase != ipStartUint32 {
 				break
@@ -224,13 +222,13 @@ func iPv4RangeToCIDRRange(ipStart string, ipEnd string) (cidrs []string, err err
 
 		}
 
-		x := math.Log(float64(ipEndUint32 - ipStartUint32 + 1)) / math.Log(2)
+		x := math.Log(float64(ipEndUint32-ipStartUint32+1)) / math.Log(2)
 		maxDiff := 32 - int(math.Floor(x))
 		if maxSize < maxDiff {
 			maxSize = maxDiff
 		}
 
-		cidrs = append(cidrs,  uInt32ToIPv4(ipStartUint32) + "/" +  strconv.Itoa(maxSize))
+		cidrs = append(cidrs, uInt32ToIPv4(ipStartUint32)+"/"+strconv.Itoa(maxSize))
 
 		ipStartUint32 += uint32(math.Exp2(float64(32 - maxSize)))
 	}
@@ -241,10 +239,10 @@ func iPv4RangeToCIDRRange(ipStart string, ipEnd string) (cidrs []string, err err
 // Convert CIDR to IPv4 range
 func CIDRRangeToIPv4Range(cidrs []string) (ipStart string, ipEnd string, err error) {
 
-	var ip uint32        // ip address
+	var ip uint32 // ip address
 
-	var ipS uint32		 // Start IP address range
-	var ipE uint32 		 // End IP address range
+	var ipS uint32 // Start IP address range
+	var ipE uint32 // End IP address range
 
 	for _, CIDR := range cidrs {
 
@@ -272,14 +270,14 @@ func CIDRRangeToIPv4Range(cidrs []string) (ipStart string, ipEnd string, err err
 }
 
 // Parse 'ips' parameter into the array of CDIR (https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-func getCIDRs(ipsParameter string)  (cidrs []string, err error) {
+func getCIDRs(ipsParameter string) (cidrs []string, err error) {
 
 	paramParts := strings.Split(ipsParameter, ",")
 
 	var cidrRegEx = regexp.MustCompile(`^([0-9]{1,3}\.){3}[0-9]{1,3}?$`)
 
 	for _, v := range paramParts {
-		paramParts :=  strings.TrimSpace(v)
+		paramParts := strings.TrimSpace(v)
 
 		if cidrRegEx.MatchString(paramParts) {
 			cidrs = append(cidrs, paramParts)
@@ -325,7 +323,7 @@ func getPorts(portsParameter string) (begin int, end int, err error) {
 
 	if err != nil {
 		begin = minPort
-	} else if begin < minPort || begin >  maxPort{
+	} else if begin < minPort || begin > maxPort {
 		begin = minPort
 		err = fmt.Errorf("port value: %d is out of ports range", begin)
 	}
@@ -335,7 +333,7 @@ func getPorts(portsParameter string) (begin int, end int, err error) {
 
 		if err != nil {
 			end = maxPort
-		} else if end < minPort || end >  maxPort{
+		} else if end < minPort || end > maxPort {
 			end = maxPort
 			err = fmt.Errorf("port value: %d is out of ports range", begin)
 		}
@@ -360,7 +358,7 @@ func getProtocols(protocolParameter string) ([]string, error) {
 
 	for _, v := range strings.Split(protocolParameter, ",") {
 
-		v := strings.Trim(strings.ToLower(v),"")
+		v := strings.Trim(strings.ToLower(v), "")
 
 		if v != "tcp" && v != "udp" {
 			pcsIgnored = append(pcsIgnored, v)
@@ -375,7 +373,7 @@ func getProtocols(protocolParameter string) ([]string, error) {
 	}
 
 	if len(pcsIgnored) > 0 {
-		return pcs, errors.New("following protocol: '" + strings.Join(pcsIgnored,",")+ "' are not support and would be ignored.")
+		return pcs, errors.New("following protocol: '" + strings.Join(pcsIgnored, ",") + "' are not support and would be ignored.")
 	}
 	return pcs, nil
 }
@@ -385,16 +383,14 @@ func getTimeout(timeOutParameter string) (timeOut time.Duration, err error) {
 
 	switch {
 	case strings.HasSuffix(timeOutParameter, "ms"):
-		timeOut, err = time.ParseDuration( timeOutParameter)
+		timeOut, err = time.ParseDuration(timeOutParameter)
 	case strings.HasSuffix(timeOutParameter, "s"):
-		timeOut, err = time.ParseDuration( timeOutParameter)
+		timeOut, err = time.ParseDuration(timeOutParameter)
 	case strings.HasSuffix(timeOutParameter, "m"):
-		timeOut, err = time.ParseDuration( timeOutParameter)
+		timeOut, err = time.ParseDuration(timeOutParameter)
 	default:
-		timeOut, err = time.ParseDuration( timeOutParameter + "ms")
+		timeOut, err = time.ParseDuration(timeOutParameter + "ms")
 	}
 
 	return timeOut, err
 }
-
-
