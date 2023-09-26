@@ -37,7 +37,7 @@ func main() {
 	a.Usage = "Network IP addresses and ports scanner"
 	a.Author = "Valentyn Ponomarenko"
 	a.Version = VERSION
-	a.Email = "bootloader@list.ru"
+	a.Email = "ValentynPonomarenko@gmail.com"
 
 	a.Flags = []cli.Flag{
 		cli.StringFlag{
