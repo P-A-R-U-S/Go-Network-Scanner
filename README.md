@@ -19,7 +19,7 @@ Parameters:
        netscanner [global options] command [command options] [arguments...]
     
     AUTHOR:
-       Valentyn Ponomarenko <bootloader@list.ru>
+       Valentyn Ponomarenko <ValentynPonomarenko@gmail.com>
     
     COMMANDS:
          help, h  Shows a list of commands or help for one command
